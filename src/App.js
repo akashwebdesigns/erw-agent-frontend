@@ -6,13 +6,12 @@ function App() {
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      text: "Hi 👋 I’m your ERW AI Assistant.\nDescribe the incident you want to create."
+      text: "Hi 👋 I’m your ERW AI Assistant.\nYou can create incidents or ask insurance rule questions."
     }
   ]);
 
   const [input, setInput] = useState("");
   const [collectedData, setCollectedData] = useState({});
-
   const chatRef = useRef(null);
 
   useEffect(() => {
@@ -84,7 +83,7 @@ function App() {
 
     try {
 
-      const res = await fetch("http://localhost:8000/chat-create-incident", {
+      const res = await fetch("http://localhost:8000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -94,6 +93,18 @@ function App() {
       });
 
       const result = await res.json();
+
+      console.log("CHAT RESPONSE:", result);
+
+      /* ===============================
+         RULE ANSWER
+      ================================= */
+      if (result.answer) {
+
+        await typeMessage(`📚 Policy Rule:\n\n${result.answer}`);
+        setCollectedData({});
+        return;
+      }
 
       /* ===============================
          INCOMPLETE DATA
@@ -109,14 +120,15 @@ function App() {
         };
 
         const formatted = result.missing_fields
-          .map(f => `• ${labelMap[f]}`)
+          .map(f => `• ${labelMap[f] || f}`)
           .join("\n");
 
         await typeMessage(
           `I still need the following information:\n\n${formatted}\n\nPlease provide all of them in one message.`
         );
 
-        setCollectedData(result.collected_data);
+        // handle both APIs
+        setCollectedData(result.collected_data || result.extracted || {});
         return;
       }
 
@@ -127,16 +139,37 @@ function App() {
 
         await typeMessage(`✅ Incident created: ${result.created_incident}`);
 
+        /* ===============================
+           AUTO WA CONFIRMATION
+        ================================= */
+        if (result.workaround_posted) {
+
+          await typeMessage(
+            `🧠 Most relevant workaround has been automatically posted to the incident.\n\n` +
+            `Source: ${result.posted_from_incident}`
+          );
+
+        } else {
+
+          await typeMessage(
+            "⚠️ No validated workaround met the confidence threshold for auto-posting."
+          );
+        }
+
+        /* ===============================
+           SHOW SUGGESTIONS
+        ================================= */
         if (!result.suggestions || result.suggestions.length === 0) {
 
           await typeMessage(
             "⚠️ No historical workarounds found.\nPlease raise ITASK to Propagator team."
           );
 
+          setCollectedData({});
           return;
         }
 
-        await typeMessage("📌 Recommended workarounds:");
+        await typeMessage("📌 Other relevant historical workarounds:");
 
         for (let s of result.suggestions) {
 
@@ -148,14 +181,15 @@ function App() {
           );
         }
 
-        // Reset conversation memory after creation
         setCollectedData({});
         return;
       }
 
     } catch (err) {
+
       await typeMessage("⚠️ Something went wrong. Please try again.");
       console.error(err);
+
     }
   };
 
@@ -179,7 +213,7 @@ function App() {
         <div className="input-area">
           <input
             value={input}
-            placeholder="Type your message..."
+            placeholder="Ask a rule question or describe an incident..."
             onChange={e => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
