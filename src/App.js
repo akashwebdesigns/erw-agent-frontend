@@ -3,6 +3,8 @@ import "./App.css";
 
 function App() {
 
+  const API_URL = process.env.REACT_APP_ERW_AGENT_URL;
+
   const [messages, setMessages] = useState([
     {
       role: "ai",
@@ -83,7 +85,7 @@ function App() {
 
     try {
 
-      const res = await fetch("http://localhost:8000/chat", {
+      const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
