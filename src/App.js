@@ -28,8 +28,8 @@ function App() {
   /* ===============================
      TYPEWRITER EFFECT
   ================================= */
-  const typeMessage = async (text, speed = 15) => {
 
+  const typeMessage = async (text, speed = 15) => {
     setMessages(prev => [...prev, { role: "ai", text: "" }]);
 
     let current = "";
@@ -38,11 +38,13 @@ function App() {
       current += char;
       await sleep(speed);
 
+      const snapshot = current; // ✅ capture current value at this iteration
+
       setMessages(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: "ai",
-          text: current
+          text: snapshot  // ✅ uses snapshot, not the outer 'current'
         };
         return updated;
       });
